@@ -589,6 +589,112 @@
       padding: 8px 12px;
       width: 100%;
     }
+
+    /* AI要約エリア（投稿と区別するため別背景） */
+    .ai-summary-zone {
+      margin-bottom: 24px;
+    }
+
+    .ai-summary-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+      color: #c4b5fd;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.05s;
+    }
+
+    .ai-summary-btn:hover {
+      opacity: 0.95;
+    }
+
+    .ai-summary-btn:active {
+      transform: scale(0.98);
+    }
+
+    .ai-summary-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .ai-summary-loading {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+      border: 1px solid #4c1d95;
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      margin-top: 12px;
+      text-align: center;
+      color: #c4b5fd;
+    }
+
+    .ai-summary-loading-spinner {
+      width: 32px;
+      height: 32px;
+      margin: 0 auto 12px;
+      border: 3px solid rgba(196, 181, 253, 0.3);
+      border-top-color: #c4b5fd;
+      border-radius: 50%;
+      animation: aiSpin 0.8s linear infinite;
+    }
+
+    @keyframes aiSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    .ai-summary-loading-text {
+      font-size: 0.95rem;
+    }
+
+    .ai-summary-result {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+      border: 1px solid #4c1d95;
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-top: 12px;
+      color: #e9e5f0;
+    }
+
+    .ai-summary-result-header {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #a78bfa;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ai-summary-result-section {
+      margin-bottom: 20px;
+    }
+
+    .ai-summary-result-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .ai-summary-result-section h4 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #c4b5fd;
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(196, 181, 253, 0.3);
+    }
+
+    .ai-summary-result-section p {
+      font-size: 0.9rem;
+      line-height: 1.65;
+      color: #e9e5f0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -635,6 +741,28 @@
         <div class="stance-summary-stacked-wrap" id="stanceSummaryStacked"></div>
         <div class="stance-summary-legend" id="stanceSummaryLegend"></div>
       </div>
+      <div class="ai-summary-zone">
+        <button type="button" class="ai-summary-btn" id="aiSummaryBtn">AIでこの議論をまとめる</button>
+        <div class="ai-summary-loading hidden" id="aiSummaryLoading">
+          <div class="ai-summary-loading-spinner"></div>
+          <div class="ai-summary-loading-text">AIが考えています...</div>
+        </div>
+        <div class="ai-summary-result hidden" id="aiSummaryResult">
+          <div class="ai-summary-result-header">AIによる議論の要約</div>
+          <div class="ai-summary-result-section" id="aiSummaryPro">
+            <h4>賛成派の意見まとめ</h4>
+            <p id="aiSummaryProText"></p>
+          </div>
+          <div class="ai-summary-result-section" id="aiSummaryCon">
+            <h4>反対派の意見まとめ</h4>
+            <p id="aiSummaryConText"></p>
+          </div>
+          <div class="ai-summary-result-section" id="aiSummaryPoints">
+            <h4>議論の論点</h4>
+            <p id="aiSummaryPointsText"></p>
+          </div>
+        </div>
+      </div>
       <div class="reply-form-section hidden" id="replyFormSection">
         <form id="replyForm" class="post-form">
           <div class="stance-row">
@@ -664,6 +792,7 @@
       getFirestore,
       collection,
       addDoc,
+      getDocs,
       onSnapshot,
       query,
       orderBy,
@@ -757,6 +886,9 @@
       document.getElementById('threadDetailTitle').textContent = threadTitle;
       document.querySelectorAll('#stanceButtons .stance-btn').forEach((b) => b.classList.remove('selected'));
       document.querySelector('#stanceButtons .stance-btn[data-stance="中立"]')?.classList.add('selected');
+      document.getElementById('aiSummaryLoading').classList.add('hidden');
+      document.getElementById('aiSummaryResult').classList.add('hidden');
+      document.getElementById('aiSummaryBtn').disabled = false;
       const repliesRef = collection(db, 'threads', threadId, 'replies');
       const q = query(repliesRef, orderBy('time', 'asc'));
       if (unsubReplies) unsubReplies();
@@ -814,6 +946,85 @@
         document.getElementById('replyContent').value = '';
       } catch (err) {
         console.error('返信に失敗しました', err);
+      }
+    });
+
+    /**
+     * スレッドの全返信を取得し、AI送信用のペイロードを組み立てる。
+     * 将来 Gemini API 等に渡すときはこの形式をそのまま利用できる。
+     */
+    async function buildPayloadForAI(threadId, threadTitle) {
+      const repliesRef = collection(db, 'threads', threadId, 'replies');
+      const q = query(repliesRef, orderBy('time', 'asc'));
+      const snapshot = await getDocs(q);
+      const replies = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          author: data.author || '',
+          content: data.content || '',
+          stance: STANCE_OPTIONS.includes(data.stance) ? data.stance : '中立'
+        };
+      });
+      return { threadTitle, replies };
+    }
+
+    /**
+     * AI要約を取得する。現在はダミーデータを返す。
+     * 将来: Gemini API 等を呼び出し、同じ形式 { pro, con, points } で返すように差し替える。
+     * @param {{ threadTitle: string, replies: { author: string, content: string, stance: string }[] }} payload
+     * @returns {Promise<{ pro: string, con: string, points: string }>}
+     */
+    async function fetchAISummary(payload) {
+      // TODO: ここで Gemini API 等を呼び出す（APIキーはバックエンドまたは環境変数で管理）
+      // 例: const res = await fetch('/api/summarize', { method: 'POST', body: JSON.stringify(payload) });
+      // const data = await res.json(); return { pro: data.pro, con: data.con, points: data.points };
+
+      await new Promise((r) => setTimeout(r, 1800));
+      const n = payload.replies.length;
+      const proAuthors = payload.replies.filter((r) => r.stance === '賛成').map((r) => r.author);
+      const conAuthors = payload.replies.filter((r) => r.stance === '反対').map((r) => r.author);
+      return {
+        pro: proAuthors.length > 0
+          ? `賛成の立場からは、主に「${proAuthors.join('」「')}」さんらが意見を述べています。\n（実際の要約は Gemini API 連携後に表示されます。）`
+          : '賛成の立場の投稿はまだありません。',
+        con: conAuthors.length > 0
+          ? `反対の立場からは、主に「${conAuthors.join('」「')}」さんらが意見を述べています。\n（実際の要約は Gemini API 連携後に表示されます。）`
+          : '反対の立場の投稿はまだありません。',
+        points: n > 0
+          ? `・このスレッドでは全${n}件の返信があります。\n・立場ごとの割合は上部のグラフで確認できます。\n・実際の論点抽出は Gemini API 連携後に表示されます。`
+          : '返信がまだないため、論点の抽出はできません。'
+      };
+    }
+
+    function showAISummaryLoading(show) {
+      const btn = document.getElementById('aiSummaryBtn');
+      const loading = document.getElementById('aiSummaryLoading');
+      const result = document.getElementById('aiSummaryResult');
+      btn.disabled = show;
+      loading.classList.toggle('hidden', !show);
+      if (show) result.classList.add('hidden');
+    }
+
+    function showAISummaryResult(summary) {
+      document.getElementById('aiSummaryProText').textContent = summary.pro;
+      document.getElementById('aiSummaryConText').textContent = summary.con;
+      document.getElementById('aiSummaryPointsText').textContent = summary.points;
+      document.getElementById('aiSummaryLoading').classList.add('hidden');
+      document.getElementById('aiSummaryResult').classList.remove('hidden');
+      document.getElementById('aiSummaryBtn').disabled = false;
+    }
+
+    document.getElementById('aiSummaryBtn').addEventListener('click', async () => {
+      if (!currentThreadId) return;
+      const threadTitle = document.getElementById('threadDetailTitle').textContent;
+      showAISummaryLoading(true);
+      try {
+        const payload = await buildPayloadForAI(currentThreadId, threadTitle);
+        const summary = await fetchAISummary(payload);
+        showAISummaryResult(summary);
+      } catch (err) {
+        console.error('AI要約の取得に失敗しました', err);
+        showAISummaryLoading(false);
       }
     });
 
