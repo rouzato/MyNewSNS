@@ -428,6 +428,167 @@
       margin-bottom: 24px;
       box-shadow: var(--shadow);
     }
+
+    .stance-row {
+      margin-bottom: 12px;
+    }
+
+    .stance-row span {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .stance-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .stance-btn {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--bg);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+
+    .stance-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .stance-btn.selected {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--accent);
+    }
+
+    .stance-btn[data-stance="賛成"].selected { border-color: #22c55e; background: rgba(34, 197, 94, 0.12); color: #22c55e; }
+    .stance-btn[data-stance="反対"].selected { border-color: #ef4444; background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+    .stance-btn[data-stance="中立"].selected { border-color: var(--text-muted); background: rgba(136, 136, 160, 0.15); color: var(--text-muted); }
+    .stance-btn[data-stance="質問"].selected { border-color: #eab308; background: rgba(234, 179, 8, 0.12); color: #eab308; }
+
+    .post-author-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .stance-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--border);
+      color: var(--text-muted);
+    }
+
+    .stance-label.stance-賛成 { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+    .stance-label.stance-反対 { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .stance-label.stance-中立 { background: rgba(136, 136, 160, 0.2); color: var(--text-muted); }
+    .stance-label.stance-質問 { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+
+    .stance-summary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .stance-summary-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .stance-summary-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* 一枚のプログレスバー（賛成|反対|中立|質問の割合を連結表示） */
+    .stance-summary-stacked-wrap {
+      width: 100%;
+      height: 28px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--border);
+      display: flex;
+      margin-bottom: 16px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+    .stance-summary-stacked-segment {
+      height: 100%;
+      min-width: 2px;
+      transition: flex-grow 0.3s ease;
+    }
+
+    .stance-summary-stacked-segment[data-stance="賛成"] { background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%); }
+    .stance-summary-stacked-segment[data-stance="反対"] { background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%); }
+    .stance-summary-stacked-segment[data-stance="中立"] { background: linear-gradient(180deg, #64748b 0%, #475569 100%); }
+    .stance-summary-stacked-segment[data-stance="質問"] { background: linear-gradient(180deg, #eab308 0%, #ca8a04 100%); }
+
+    .stance-summary-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px 24px;
+      justify-content: space-between;
+    }
+
+    .stance-summary-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+    }
+
+    .stance-summary-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .stance-summary-item span:first-of-type {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .stance-summary-pct {
+      min-width: 2.8em;
+      text-align: right;
+      color: var(--text);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stance-summary-stacked-wrap.stance-summary-empty {
+      height: auto;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+    }
+
+    .stance-summary-empty-msg {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px 12px;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -468,8 +629,23 @@
     <section class="thread-detail-section" id="threadDetailSection">
       <a href="#" class="back-link" id="backToThreads">← スレッド一覧に戻る</a>
       <h2 class="thread-title-heading" id="threadDetailTitle"></h2>
+      <div class="stance-summary" id="stanceSummary">
+        <div class="stance-summary-title">コミュニティの意見分布</div>
+        <div class="stance-summary-sub" id="stanceSummarySub">返信がまだありません</div>
+        <div class="stance-summary-stacked-wrap" id="stanceSummaryStacked"></div>
+        <div class="stance-summary-legend" id="stanceSummaryLegend"></div>
+      </div>
       <div class="reply-form-section hidden" id="replyFormSection">
         <form id="replyForm" class="post-form">
+          <div class="stance-row">
+            <span>自分の立場を選んでください</span>
+            <div class="stance-buttons" id="stanceButtons">
+              <button type="button" class="stance-btn" data-stance="賛成">賛成</button>
+              <button type="button" class="stance-btn" data-stance="反対">反対</button>
+              <button type="button" class="stance-btn" data-stance="中立">中立</button>
+              <button type="button" class="stance-btn" data-stance="質問">質問</button>
+            </div>
+          </div>
           <textarea id="replyContent" placeholder="返信を入力..." maxlength="500"></textarea>
           <button type="submit" class="btn btn-primary">返信する</button>
         </form>
@@ -512,6 +688,7 @@
     const db = getFirestore(app);
 
     const USER_STORAGE_KEY = 'mysns_user';
+    const STANCE_OPTIONS = ['賛成', '反対', '中立', '質問'];
     let unsubThreads = null;
     let unsubReplies = null;
     let currentThreadId = null;
@@ -578,6 +755,8 @@
       document.getElementById('threadListSection').classList.remove('visible');
       document.getElementById('threadDetailSection').classList.add('visible');
       document.getElementById('threadDetailTitle').textContent = threadTitle;
+      document.querySelectorAll('#stanceButtons .stance-btn').forEach((b) => b.classList.remove('selected'));
+      document.querySelector('#stanceButtons .stance-btn[data-stance="中立"]')?.classList.add('selected');
       const repliesRef = collection(db, 'threads', threadId, 'replies');
       const q = query(repliesRef, orderBy('time', 'asc'));
       if (unsubReplies) unsubReplies();
@@ -609,16 +788,26 @@
       }
     });
 
+    document.querySelectorAll('#stanceButtons .stance-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#stanceButtons .stance-btn').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+
     document.getElementById('replyForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const content = document.getElementById('replyContent').value.trim();
       if (!content || !currentThreadId) return;
       const author = getCurrentUser();
       if (!author) return;
+      const stanceBtn = document.querySelector('#stanceButtons .stance-btn.selected');
+      const stance = stanceBtn ? stanceBtn.dataset.stance : '中立';
       try {
         await addDoc(collection(db, 'threads', currentThreadId, 'replies'), {
           author,
           content,
+          stance,
           time: serverTimestamp(),
           likeCount: 0
         });
@@ -680,7 +869,46 @@
       });
     }
 
+    function updateStanceSummary(docs) {
+      const counts = { 賛成: 0, 反対: 0, 中立: 0, 質問: 0 };
+      docs.forEach((d) => {
+        const s = d.data().stance;
+        if (STANCE_OPTIONS.includes(s)) counts[s]++;
+      });
+      const total = docs.length;
+      const subEl = document.getElementById('stanceSummarySub');
+      const stackedEl = document.getElementById('stanceSummaryStacked');
+      const legendEl = document.getElementById('stanceSummaryLegend');
+      const dotColors = { 賛成: '#22c55e', 反対: '#ef4444', 中立: '#64748b', 質問: '#eab308' };
+
+      subEl.textContent = total ? `全${total}件の返信より — 自分の意見がどこに位置するか一目で確認できます` : '返信がまだありません';
+
+      if (total === 0) {
+        stackedEl.classList.add('stance-summary-empty');
+        stackedEl.innerHTML = '<div class="stance-summary-empty-msg">返信が集まると、ここに意見の分布が表示されます</div>';
+      } else {
+        stackedEl.classList.remove('stance-summary-empty');
+        stackedEl.innerHTML = STANCE_OPTIONS.map((label) => {
+          const pct = Math.round((counts[label] / total) * 100);
+          return `<div class="stance-summary-stacked-segment" data-stance="${escapeHtml(label)}" style="flex: ${counts[label]} 1 0" title="${escapeHtml(label)} ${pct}%"></div>`;
+        }).join('');
+      }
+
+      legendEl.innerHTML = STANCE_OPTIONS.map((label) => {
+        const n = counts[label];
+        const pct = total ? Math.round((n / total) * 100) : 0;
+        return `
+          <div class="stance-summary-item">
+            <span class="stance-summary-dot" style="background:${dotColors[label]}"></span>
+            <span>${escapeHtml(label)}</span>
+            <span class="stance-summary-pct">${pct}%</span>
+          </div>
+        `;
+      }).join('');
+    }
+
     function renderReplies(docs) {
+      updateStanceSummary(docs);
       const container = document.getElementById('repliesList');
       const emptyState = document.getElementById('repliesEmpty');
       container.querySelectorAll('.post-card').forEach(el => el.remove());
@@ -688,21 +916,27 @@
 
       docs.forEach((d) => {
         const data = d.data();
+        const stance = STANCE_OPTIONS.includes(data.stance) ? data.stance : '中立';
         const post = {
           id: d.id,
           author: data.author || '',
           content: data.content || '',
+          stance,
           time: timeToIso(data.time),
           likeCount: data.likeCount ?? 0
         };
         const count = post.likeCount;
+        const stanceLabelHtml = post.stance ? `<span class="stance-label stance-${escapeHtml(post.stance)}">[${escapeHtml(post.stance)}]</span>` : '';
         const card = document.createElement('article');
         card.className = 'post-card';
         card.innerHTML = `
           <div class="post-header">
             <div class="post-avatar">${getInitial(post.author)}</div>
             <div class="post-meta">
-              <div class="post-author">${escapeHtml(post.author)}</div>
+              <div class="post-author-line">
+                <span class="post-author">${escapeHtml(post.author)}</span>
+                ${stanceLabelHtml}
+              </div>
               <div class="post-time">${formatTime(post.time)}</div>
             </div>
           </div>
