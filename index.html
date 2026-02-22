@@ -308,6 +308,126 @@
     .hidden {
       display: none !important;
     }
+
+    /* スレッド一覧 */
+    .thread-list-section h2,
+    .thread-detail-section h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .thread-create {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .thread-create input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+
+    .thread-create input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .thread-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .thread-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      box-shadow: var(--shadow);
+    }
+
+    .thread-item:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+    }
+
+    .thread-item-meta {
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* スレッド詳細（返信一覧） */
+    .thread-detail-section {
+      display: none;
+    }
+
+    .thread-detail-section.visible {
+      display: block;
+    }
+
+    .thread-list-section.visible {
+      display: block;
+    }
+
+    .thread-list-section:not(.visible) {
+      display: none;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 20px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+
+    .back-link:hover {
+      color: var(--accent);
+    }
+
+    .thread-title-heading {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .reply-form-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
   </style>
 </head>
 <body>
@@ -329,18 +449,34 @@
       <p class="current-user" id="currentUser"></p>
     </section>
 
-    <section class="post-section hidden" id="postSection">
-      <h2>投稿する</h2>
-      <form class="post-form" id="postForm">
-        <textarea id="postContent" placeholder="いま何してる？" maxlength="500"></textarea>
-        <button type="submit" class="btn btn-primary">投稿</button>
-      </form>
+    <!-- スレッド一覧（トップ画面） -->
+    <section class="thread-list-section visible" id="threadListSection">
+      <div class="thread-create hidden" id="threadCreateSection">
+        <h2>新規スレッドを作成</h2>
+        <form id="threadCreateForm">
+          <input type="text" id="threadTitleInput" placeholder="話題のタイトルを入力" maxlength="100" required>
+          <button type="submit" class="btn btn-primary">スレッドを作成</button>
+        </form>
+      </div>
+      <h2>スレッド一覧</h2>
+      <div class="thread-list" id="threadList">
+        <div class="empty-state" id="threadListEmpty">まだスレッドがありません。最初のスレッドを作成しましょう！</div>
+      </div>
     </section>
 
-    <section class="timeline-section">
-      <h2>タイムライン</h2>
-      <div class="posts" id="postsList">
-        <div class="empty-state" id="emptyState">まだ投稿がありません。最初の投稿をしてみましょう！</div>
+    <!-- スレッド詳細（返信一覧） -->
+    <section class="thread-detail-section" id="threadDetailSection">
+      <a href="#" class="back-link" id="backToThreads">← スレッド一覧に戻る</a>
+      <h2 class="thread-title-heading" id="threadDetailTitle"></h2>
+      <div class="reply-form-section hidden" id="replyFormSection">
+        <form id="replyForm" class="post-form">
+          <textarea id="replyContent" placeholder="返信を入力..." maxlength="500"></textarea>
+          <button type="submit" class="btn btn-primary">返信する</button>
+        </form>
+      </div>
+      <h2>返信一覧</h2>
+      <div class="posts" id="repliesList">
+        <div class="empty-state" id="repliesEmpty">まだ返信がありません。最初の返信を書きましょう！</div>
       </div>
     </section>
   </div>
@@ -376,6 +512,9 @@
     const db = getFirestore(app);
 
     const USER_STORAGE_KEY = 'mysns_user';
+    let unsubThreads = null;
+    let unsubReplies = null;
+    let currentThreadId = null;
 
     function getCurrentUser() {
       return localStorage.getItem(USER_STORAGE_KEY);
@@ -391,12 +530,14 @@
       if (user) {
         document.getElementById('registerSection').classList.add('hidden');
         document.getElementById('welcomeSection').classList.remove('hidden');
-        document.getElementById('postSection').classList.remove('hidden');
+        document.getElementById('threadCreateSection').classList.remove('hidden');
         document.getElementById('currentUser').textContent = user + ' としてログイン中';
+        document.getElementById('replyFormSection').classList.remove('hidden');
       } else {
         document.getElementById('registerSection').classList.remove('hidden');
         document.getElementById('welcomeSection').classList.add('hidden');
-        document.getElementById('postSection').classList.add('hidden');
+        document.getElementById('threadCreateSection').classList.add('hidden');
+        document.getElementById('replyFormSection').classList.add('hidden');
       }
     }
 
@@ -410,22 +551,80 @@
       document.getElementById('userName').value = '';
     });
 
-    document.getElementById('postForm').addEventListener('submit', async (e) => {
+    function showThreadList() {
+      currentThreadId = null;
+      if (unsubReplies) {
+        unsubReplies();
+        unsubReplies = null;
+      }
+      document.getElementById('threadListSection').classList.add('visible');
+      document.getElementById('threadDetailSection').classList.remove('visible');
+      const q = query(
+        collection(db, 'threads'),
+        orderBy('time', 'desc')
+      );
+      if (unsubThreads) unsubThreads();
+      unsubThreads = onSnapshot(q, (snapshot) => {
+        renderThreadList(snapshot.docs);
+      });
+    }
+
+    function showThreadDetail(threadId, threadTitle) {
+      currentThreadId = threadId;
+      if (unsubThreads) {
+        unsubThreads();
+        unsubThreads = null;
+      }
+      document.getElementById('threadListSection').classList.remove('visible');
+      document.getElementById('threadDetailSection').classList.add('visible');
+      document.getElementById('threadDetailTitle').textContent = threadTitle;
+      const repliesRef = collection(db, 'threads', threadId, 'replies');
+      const q = query(repliesRef, orderBy('time', 'asc'));
+      if (unsubReplies) unsubReplies();
+      unsubReplies = onSnapshot(q, (snapshot) => {
+        renderReplies(snapshot.docs);
+      });
+    }
+
+    document.getElementById('backToThreads').addEventListener('click', (e) => {
       e.preventDefault();
-      const content = document.getElementById('postContent').value.trim();
-      if (!content) return;
+      showThreadList();
+    });
+
+    document.getElementById('threadCreateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('threadTitleInput').value.trim();
+      if (!title) return;
       const author = getCurrentUser();
       if (!author) return;
       try {
-        await addDoc(collection(db, 'posts'), {
+        await addDoc(collection(db, 'threads'), {
+          title,
+          author,
+          time: serverTimestamp()
+        });
+        document.getElementById('threadTitleInput').value = '';
+      } catch (err) {
+        console.error('スレッドの作成に失敗しました', err);
+      }
+    });
+
+    document.getElementById('replyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = document.getElementById('replyContent').value.trim();
+      if (!content || !currentThreadId) return;
+      const author = getCurrentUser();
+      if (!author) return;
+      try {
+        await addDoc(collection(db, 'threads', currentThreadId, 'replies'), {
           author,
           content,
           time: serverTimestamp(),
           likeCount: 0
         });
-        document.getElementById('postContent').value = '';
+        document.getElementById('replyContent').value = '';
       } catch (err) {
-        console.error('投稿に失敗しました', err);
+        console.error('返信に失敗しました', err);
       }
     });
 
@@ -452,9 +651,38 @@
       return '';
     }
 
-    function renderPosts(docs) {
-      const container = document.getElementById('postsList');
-      const emptyState = document.getElementById('emptyState');
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function renderThreadList(docs) {
+      const container = document.getElementById('threadList');
+      const emptyState = document.getElementById('threadListEmpty');
+      container.querySelectorAll('.thread-item').forEach(el => el.remove());
+      emptyState.classList.toggle('hidden', docs.length > 0);
+
+      docs.forEach((d) => {
+        const data = d.data();
+        const title = data.title || '(無題)';
+        const author = data.author || '';
+        const time = timeToIso(data.time);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'thread-item';
+        btn.innerHTML = `
+          ${escapeHtml(title)}
+          <div class="thread-item-meta">${escapeHtml(author)} · ${formatTime(time)}</div>
+        `;
+        btn.addEventListener('click', () => showThreadDetail(d.id, title));
+        container.insertBefore(btn, emptyState);
+      });
+    }
+
+    function renderReplies(docs) {
+      const container = document.getElementById('repliesList');
+      const emptyState = document.getElementById('repliesEmpty');
       container.querySelectorAll('.post-card').forEach(el => el.remove());
       emptyState.classList.toggle('hidden', docs.length > 0);
 
@@ -470,7 +698,6 @@
         const count = post.likeCount;
         const card = document.createElement('article');
         card.className = 'post-card';
-        card.dataset.postId = post.id;
         card.innerHTML = `
           <div class="post-header">
             <div class="post-avatar">${getInitial(post.author)}</div>
@@ -488,20 +715,14 @@
           </div>
         `;
         const likeBtn = card.querySelector('.like-btn');
-        likeBtn.addEventListener('click', () => handleLike(post.id, likeBtn));
+        likeBtn.addEventListener('click', () => handleLikeReply(currentThreadId, post.id, likeBtn));
         container.insertBefore(card, emptyState);
       });
     }
 
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
-
-    async function handleLike(postId, btnEl) {
+    async function handleLikeReply(threadId, replyId, btnEl) {
       try {
-        await updateDoc(doc(db, 'posts', postId), { likeCount: increment(1) });
+        await updateDoc(doc(db, 'threads', threadId, 'replies', replyId), { likeCount: increment(1) });
         btnEl.classList.add('like-active', 'animate-pop');
         const countEl = btnEl.querySelector('.like-count');
         countEl.textContent = Number(countEl.textContent) + 1;
@@ -512,14 +733,7 @@
     }
 
     applyUserUI();
-
-    const q = query(
-      collection(db, 'posts'),
-      orderBy('time', 'desc')
-    );
-    onSnapshot(q, (snapshot) => {
-      renderPosts(snapshot.docs);
-    });
+    showThreadList();
   </script>
 </body>
 </html>
